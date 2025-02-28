@@ -35,7 +35,7 @@ static SchedImpl available_schedulers[SCHEDC] = {
     {"MLFQ", &mlfq_scheduler, 2}
 };
 
-void (*sched_pointer)(void) = &mlfq_scheduler;
+void (*sched_pointer)(void) = &rr_scheduler;
 
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
