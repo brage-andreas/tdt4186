@@ -12,6 +12,8 @@ struct superblock;
 
 #define YIELD_TIMER 1
 #define YIELD_OTHER 2
+#define PRIORITY_RESET_THRESHOLD 300
+#define DEFAULT_PROCESS_PRIORITY 1
 
 // bio.c
 void binit(void);
@@ -115,6 +117,7 @@ void procdump(void);
 struct user_proc *ps(uint8 start, uint8 count);
 void schedls(void);
 void schedset(int id);
+void mlfq_scheduler(void);
 
 // swtch.S
 void swtch(struct context *, struct context *);
@@ -156,6 +159,7 @@ void trapinit(void);
 void trapinithart(void);
 extern struct spinlock tickslock;
 void usertrapret(void);
+uint current_tick(void);
 
 // uart.c
 void uartinit(void);

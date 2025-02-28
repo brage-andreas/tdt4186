@@ -29,11 +29,13 @@ typedef struct scheduler_impl
 
 // Register all available schedulers here
 // also update schedc, this indicates how long the SchedImpl array is
-#define SCHEDC 1
+#define SCHEDC 2
 static SchedImpl available_schedulers[SCHEDC] = {
-    {"Round Robin", &rr_scheduler, 1}};
+    {"Round Robin", &rr_scheduler, 1},
+    {"MLFQ", &mlfq_scheduler, 2}
+};
 
-void (*sched_pointer)(void) = &rr_scheduler;
+void (*sched_pointer)(void) = &mlfq_scheduler;
 
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
@@ -400,6 +402,8 @@ int fork(void)
     // Cause fork to return 0 in the child.
     np->trapframe->a0 = 0;
 
+    np->priority = DEFAULT_PROCESS_PRIORITY;
+
     // increment reference counts on open file descriptors.
     for (i = 0; i < NOFILE; i++)
         if (p->ofile[i])
@@ -593,6 +597,39 @@ void rr_scheduler(void)
     // Round Robin round has completed.
 }
 
+void mlfq_scheduler(void)
+{
+    struct proc *p;
+    struct cpu *c = mycpu();
+
+    c->proc = 0;
+
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+
+    for (int i=1; i>=0; i--)
+    {
+        for (p = proc; p < &proc[NPROC]; p++)
+        {
+            acquire(&p->lock);
+            if (p->state == RUNNABLE && p->priority == i)
+            {
+                // Switch to chosen process.  It is the process's job
+                // to release its lock and then reacquire it
+                // before jumping back to us.
+                p->state = RUNNING;
+                c->proc = p;
+                swtch(&c->context, &p->context);
+
+                // Process is done running for now.
+                // It should have changed its p->state before coming back.
+                c->proc = 0;
+            }
+            release(&p->lock);
+        }
+    }
+}
+
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
@@ -624,6 +661,25 @@ void yield(uint64 reason)
 {
     struct proc *p = myproc();
     acquire(&p->lock);
+
+    if (reason == YIELD_TIMER)
+    {
+        if (p->priority > 0)
+        {
+            p->priority--;
+            p->last_penalty_tick = current_tick();
+        }
+        else if (p->priority <= 0)
+        {
+            p->priority++;
+        }
+    }
+    
+    if (current_tick() - p->last_penalty_tick >= PRIORITY_RESET_THRESHOLD)
+    {
+        p->priority = DEFAULT_PROCESS_PRIORITY;
+    }
+
     p->state = RUNNABLE;
     sched();
     release(&p->lock);

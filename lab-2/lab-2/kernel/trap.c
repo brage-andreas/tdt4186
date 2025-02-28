@@ -229,3 +229,8 @@ int devintr()
         return 0;
     }
 }
+ 
+uint current_tick(void)
+{
+    return ticks;
+}
