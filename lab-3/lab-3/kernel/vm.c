@@ -332,6 +332,43 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   return -1;
 }
 
+int
+copyonwrite(pagetable_t old, pagetable_t new, uint64 sz)
+{
+  pte_t *pte;
+  uint64 pa, i;
+  uint flags;
+
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walk(old, i, 0)) == 0)
+      panic("copyonwrite: pte should exist");
+    if((*pte & PTE_V) == 0)
+      panic("copyonwrite: page not present");
+    pa = PTE2PA(*pte);
+    flags = PTE_FLAGS(*pte);
+
+    // add page table shared flag
+    flags |= PTE_S;
+    // remove page table write flag
+    flags &= ~PTE_W;
+
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
+      kfree((void *)pa);
+      goto err;
+    }
+
+    *pte |= PTE_S;
+    *pte &= ~PTE_W;
+
+    kshm_refincr((void *)pa);
+  }
+  return 0;
+
+ err:
+  uvmunmap(new, 0, i / PGSIZE, 1);
+  return -1;
+}
+
 // mark a PTE invalid for user access.
 // used by exec for the user stack guard page.
 void

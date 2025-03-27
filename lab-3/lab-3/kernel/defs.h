@@ -71,6 +71,10 @@ void ramdiskrw(struct buf *);
 void *kalloc(void);
 void kfree(void *);
 void kinit(void);
+uint64 kshm_acquire(void *);
+void kshm_free(void *);
+void kshm_refincr(void *);
+void kshm_refdecr(void *);
 
 // log.c
 void initlog(int, struct superblock *);
@@ -119,7 +123,7 @@ void procdump(void);
 struct user_proc *ps(uint8 start, uint8 count);
 void schedls(void);
 void schedset(int id);
-int va2pa (int addr, int pid);
+int va2pa(int addr, int pid);
 
 // swtch.S
 void swtch(struct context *, struct context *);
@@ -187,6 +191,7 @@ uint64 walkaddr(pagetable_t, uint64);
 int copyout(pagetable_t, uint64, char *, uint64);
 int copyin(pagetable_t, char *, uint64, uint64);
 int copyinstr(pagetable_t, char *, uint64, uint64);
+int copyonwrite(pagetable_t, pagetable_t, uint64);
 
 // plic.c
 void plicinit(void);
